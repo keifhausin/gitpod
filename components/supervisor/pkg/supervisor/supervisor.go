@@ -25,6 +25,7 @@ import (
 	"github.com/gitpod-io/gitpod/content-service/pkg/initializer"
 	"github.com/gitpod-io/gitpod/supervisor/pkg/backup"
 	"github.com/gitpod-io/gitpod/supervisor/pkg/dropwriter"
+	"github.com/gitpod-io/gitpod/supervisor/pkg/terminal"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 
 	"github.com/gitpod-io/gitpod/common-go/log"
@@ -177,7 +178,7 @@ func loadConfigFromFile(cfg *Config) {
 			continue
 		}
 
-		log.WithField("configFile", loc).WithField("config", cfg).Info("read config file")
+		log.WithField("configFile", loc).WithField("config", cfg).Debug("read config file")
 		break
 	}
 }
@@ -243,11 +244,16 @@ func Run(options ...RunOption) {
 			uint32(cfg.GitpodTheiaPort),
 			uint32(cfg.APIEndpointPort),
 		)
+		termMux    = terminal.NewMux()
+		termMuxSrv = terminal.NewMuxTerminalService(termMux)
 	)
+
+	termMuxSrv.DefaultWorkdir = cfg.TheiaWorkspaceRoot
 
 	var apiServices []RegisterableService
 	apiServices = append(apiServices, iwh)
 	apiServices = append(apiServices, &statusService{IWH: iwh, Ports: portMgmt})
+	apiServices = append(apiServices, termMuxSrv)
 	apiServices = append(apiServices, opts.AdditionalServices...)
 
 	var wg sync.WaitGroup
